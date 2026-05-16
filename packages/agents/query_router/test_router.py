@@ -19,6 +19,8 @@ for path in (
     if path not in sys.path:
         sys.path.insert(0, path)
 
+from model_registry import attribution_from_invocation
+from query_router.generation import RouterGenerationResult
 from query_router.models import LLMRouterOutput, LLMSubQuery
 from query_router.registry import resolve_agent_ids
 from query_router.router import route_query
@@ -50,6 +52,15 @@ def test_resolve_agent_ids(
 ) -> None:
     ids = resolve_agent_ids(domain=domain, raw_query=raw_query)
     assert ids == expected_ids
+
+
+def _mock_generation(llm_output: LLMRouterOutput) -> RouterGenerationResult:
+    return RouterGenerationResult(
+        output=llm_output,
+        attribution=attribution_from_invocation(
+            "router", model="gpt-4o-mini", backend="litellm"
+        ),
+    )
 
 
 @pytest.mark.parametrize(
@@ -122,7 +133,7 @@ def test_route_query_mocked(raw_query: str, llm_output: LLMRouterOutput) -> None
     with patch(
         "query_router.router.generate_router_output",
         new_callable=AsyncMock,
-        return_value=llm_output,
+        return_value=_mock_generation(llm_output),
     ):
         result = asyncio.run(route_query(raw_query))
 
@@ -146,7 +157,7 @@ def test_route_query_italy_clients_example() -> None:
     with patch(
         "query_router.router.generate_router_output",
         new_callable=AsyncMock,
-        return_value=llm_output,
+        return_value=_mock_generation(llm_output),
     ):
         result = asyncio.run(
             route_query("how many active clients does this company have in Italy?")

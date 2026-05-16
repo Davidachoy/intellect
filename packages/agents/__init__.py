@@ -1,3 +1,3 @@
-from agents.run import run_query
+"""Intellect LangGraph agents package."""
 
-__all__ = ["run_query"]
+__all__: list[str] = []

@@ -12,12 +12,21 @@ For compound questions, set complexity to "compound" and fill sub_queries with o
 entry per distinct question. Each sub-query must have its own intent, filters, aggregation, and domain.
 
 Rules:
-- intent: the analytical goal (count, average, percentage, sum, compare, trend, breakdown)
+- intent: the analytical goal (count, average, percentage, sum, compare, trend, breakdown, benchmark)
+- Use intent "benchmark" when the user asks for sector-wide, cross-company, or industry averages
+  (e.g. "sector average churn", "benchmark across registered companies") without naming one company
 - filters: only non-PII dimensions mentioned (region, status, segment, age_range, outcome, etc.)
 - aggregation: the operation Intelligence Agents should run (count, average, percentage, sum, group_by_region)
 - domain: best-matching domain string from the list above
 - mentioned_companies: explicit company names in the query (e.g. "Acme Retail", "NordLogistics")
 - If the user says "this company" without a name, leave mentioned_companies empty
+
+Out-of-scope queries (personal chit-chat, "what is my name", jokes, general knowledge):
+- Set intent to "unsupported"
+- Set domain to "none"
+- Set aggregation to "none"
+- Put a short reason in filters, e.g. {"reason": "not_business_intelligence"}
+- Always return valid JSON with all required fields — never return an empty object.
 """
 
 ROUTER_USER_TEMPLATE = """Parse this query into structured routing output.

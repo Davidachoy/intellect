@@ -1,0 +1,11 @@
+**/.git
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/node_modules
+**/dist
+.env
+*.md
+openspec
+.cursor
+speechmatics-browser-audio-input-*.tgz

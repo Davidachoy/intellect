@@ -1,23 +1,72 @@
 services:
   api:
     build:
-      context: ./packages/api
+      context: .
+      dockerfile: packages/api/Dockerfile
     ports:
       - "8000:8000"
     env_file:
       - .env
-    volumes:
-      - ./packages/api:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      CORS_ORIGINS: "http://localhost,http://127.0.0.1,http://localhost:80,http://127.0.0.1:80"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    command:
+      - python
+      - -c
+      - |
+        import sys
+        sys.path.insert(0, '/intellect/packages/api')
+        import monorepo_path
+        monorepo_path.setup_monorepo_paths()
+        import asyncio
+        from anomaly.worker import _main
+        asyncio.run(_main())
+    working_dir: /intellect/packages/agents
+    env_file:
+      - .env
+    environment:
+      ANOMALY_DETECTOR_MODE: ${ANOMALY_DETECTOR_MODE:-poll}
+      ANOMALY_POLL_INTERVAL_SEC: ${ANOMALY_POLL_INTERVAL_SEC:-5}
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
 
   web:
     build:
       context: ./packages/web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
+        VITE_DEMO_API_KEY: ${VITE_DEMO_API_KEY:-demo-key}
     ports:
-      - "5173:5173"
-    env_file:
-      - .env
-    volumes:
-      - ./packages/web:/app
-      - /app/node_modules
-    command: pnpm dev --host 0.0.0.0
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
