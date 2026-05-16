@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import Any, TypedDict
 from uuid import uuid4
 
 
@@ -14,6 +14,7 @@ class QueryState(TypedDict):
     target_agent_ids: list[str]
 
     # Intelligence Agent output
+    intelligence_results: list[dict]
     raw_insights: list[dict]
     record_counts: list[int]
 
@@ -26,9 +27,15 @@ class QueryState(TypedDict):
     cost_usd: float
     sensitivity_tier: str
 
+    # Explainer output
+    explanation: str
+
     # Final
     response: str
     error: str | None
+
+    # Model attribution per node (hackathon demo + audit)
+    model_attribution: dict[str, Any]
 
 
 def initial_state(
@@ -45,6 +52,7 @@ def initial_state(
         target_company_id=target_company_id,
         structured_query={},
         target_agent_ids=[],
+        intelligence_results=[],
         raw_insights=[],
         record_counts=[],
         passed_privacy=True,
@@ -52,6 +60,8 @@ def initial_state(
         sanitized_response="",
         cost_usd=0.0,
         sensitivity_tier="aggregated",
+        explanation="",
         response="",
         error=None,
+        model_attribution={},
     )

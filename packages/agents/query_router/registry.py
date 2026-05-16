@@ -75,6 +75,8 @@ def resolve_agent_ids(
 ) -> list[str]:
     """Map domain and optional company mentions to intelligence agent UUIDs."""
     normalized_domain = domain.strip().lower().replace(" ", "_")
+    if normalized_domain in ("none", "unsupported", ""):
+        return []
     query_lower = raw_query.lower()
     mentioned = {name.strip().lower() for name in (mentioned_companies or [])}
 
@@ -98,3 +100,22 @@ def resolve_agent_ids(
             seen.add(agent_id)
             ordered.append(agent_id)
     return ordered
+
+
+def lookup_agent(agent_id: str) -> AgentRegistryEntry | None:
+    for entry in AGENT_REGISTRY:
+        if entry.agent_id == agent_id:
+            return entry
+    return None
+
+
+def lookup_company(company_id: str) -> AgentRegistryEntry | None:
+    for entry in AGENT_REGISTRY:
+        if entry.company_id == company_id:
+            return entry
+    return None
+
+
+def company_id_for_agent(agent_id: str) -> str | None:
+    entry = lookup_agent(agent_id)
+    return entry.company_id if entry else None
