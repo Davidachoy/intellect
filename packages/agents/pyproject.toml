@@ -1,0 +1,22 @@
+[project]
+name = "intellect-agents"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "google-genai>=1.0.0",
+    "loguru>=0.7.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "langgraph>=0.2.0",
+    "intellect-shared",
+]
+
+[tool.uv.sources]
+intellect-shared = { path = "../shared", editable = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0", "pytest-asyncio>=0.24.0"]

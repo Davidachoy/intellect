@@ -1,0 +1,125 @@
+---
+alwaysApply: true
+---
+## Monorepo Structure
+```
+intellect/
+├── packages/
+│   ├── api/          ← FastAPI — HTTP layer, routes, auth
+│   ├── agents/       ← LangGraph agent system
+│   │   ├── query_router/
+│   │   ├── privacy_guard/
+│   │   ├── pricing/
+│   │   └── intelligence/
+│   ├── web/          ← React dashboard
+│   └── shared/       ← Pydantic models, types, constants
+├── openspec/specs/
+├── .cursor/rules/
+├── docker-compose.yml
+├── PRD.md
+├── ARCHITECTURE.md
+└── TASKS.md
+```
+
+---
+
+## Agent System — The Four Agents
+
+### 1. Query Router Agent
+- Receives natural language query (text or voice transcript)
+- Determines which Intelligence Agent(s) can answer
+- Decomposes complex queries into sub-queries
+- Uses Gemini Flash for speed
+
+### 2. Privacy Guard Agent
+- Runs BEFORE every response leaves the system
+- Enforces k-anonymity: blocks any response derived from fewer than 10 records
+- Blocks PII-exposing responses
+- Blocks queries designed to reconstruct individual records
+- Uses Featherless open-source model (domain-specialized, compliance)
+- NEVER skipped — every response passes through this agent
+
+### 3. Pricing Agent
+- Calculates query cost based on sensitivity + complexity
+- Sensitivity tiers: public (free), aggregated ($0.01), sensitive ($0.05), strategic ($0.25)
+- Logs every transaction to audit table
+
+### 4. Intelligence Agent (one per registered company)
+- Owns a private vector store in Supabase (pgvector)
+- Receives structured query from Router
+- Runs RAG over its own data
+- Returns aggregated insight — never raw rows
+- Has configurable access rules per querying company
+
+---
+
+## Privacy Rules — Non-Negotiable
+These rules are enforced in code, not just prompts:
+
+1. **No raw rows ever** — agents return aggregated results only
+2. **k-anonymity = 10** — any result derived from fewer than 10 records is blocked
+3. **No PII in responses** — names, emails, IDs are stripped before any response
+4. **Audit log** — every query, every response, every block is logged
+5. **Differential privacy on aggregations** — add noise to counts near the threshold
+
+---
+
+## Code Conventions
+
+### Python
+- Use `async/await` everywhere — this is an async-first system
+- Pydantic v2 for all data models — define in `packages/shared/`
+- Type hints on every function signature
+- Never use `print()` — use `loguru` logger
+- Errors: raise typed exceptions, catch at the route level
+- Every agent function returns a typed Pydantic model
+
+### API Design
+- RESTful routes in `packages/api/routes/`
+- All routes use dependency injection for auth
+- Response envelope: `{ "data": ..., "meta": { "query_id": ..., "cost": ..., "blocked": bool } }`
+- Every query gets a UUID — traceable end to end
+
+### LangGraph
+- Define state as a TypedDict
+- Each agent is a node in the graph
+- Privacy Guard is always the last node before output
+- Use `conditional_edges` for routing logic
+
+### React
+- Components in `packages/web/src/components/`
+- No class components — hooks only
+- Tailwind for all styling — no inline styles
+- Real-time updates via Supabase Realtime
+
+---
+
+## What Agents Must Never Do
+- Return raw database rows to any external party
+- Skip the Privacy Guard node
+- Hardcode API keys — use environment variables always
+- Write synchronous blocking code in async functions
+- Create files outside the defined monorepo structure
+- Use `any` type in TypeScript or skip type hints in Python
+
+---
+
+## Environment Variables
+All secrets live in `.env` (never committed). Structure:
+```
+GEMINI_API_KEY=
+SUPABASE_URL=
+SUPABASE_SERVICE_KEY=
+SPEECHMATICS_API_KEY=
+FEATHERLESS_API_KEY=
+```
+
+---
+
+## Demo Scenario (keep this in mind when building)
+Three panels visible simultaneously:
+- **Panel A:** VC analyst asks via voice: "How many active clients does this company have in Italy?"
+- **Panel B:** Intelligence Agent processes internally, Privacy Guard validates
+- **Panel C:** Response: "847 active clients, 23% YoY growth" + audit log entry + $0.05 charged
+
+The raw data never appears anywhere on screen. That is the demo's WOW moment.
