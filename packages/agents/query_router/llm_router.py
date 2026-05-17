@@ -1,15 +1,14 @@
-"""Provider-agnostic LLM routing via LiteLLM (any model string, one code path)."""
+"""Gemini-powered LLM routing."""
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from litellm import acompletion
 from loguru import logger
 
-from litellm_retry import with_litellm_retry
+from gemini_client import generate_gemini_text
+from gemini_retry import with_gemini_retry
 from query_router.llm_parse import parse_router_json
 from query_router.models import LLMRouterOutput
 from query_router.prompts import ROUTER_SYSTEM_PROMPT, ROUTER_USER_TEMPLATE
@@ -30,26 +29,20 @@ def _user_prompt(raw_query: str) -> str:
 
 
 async def generate_llm_router_output(raw_query: str, *, model: str) -> LLMRouterOutput:
-    """Call any LiteLLM-supported model; credentials come from standard env vars."""
+    """Call Gemini Flash and parse the structured router JSON."""
     _ensure_env_loaded()
-    logger.debug("LiteLLM router model={}", model)
+    logger.debug("Gemini router model={}", model)
 
-    async def _call() -> object:
-        return await acompletion(
+    async def _call() -> str:
+        return await generate_gemini_text(
             model=model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": ROUTER_SYSTEM_PROMPT + _JSON_SYSTEM_SUFFIX,
-                },
-                {"role": "user", "content": _user_prompt(raw_query)},
-            ],
-            response_format={"type": "json_object"},
+            system_instruction=ROUTER_SYSTEM_PROMPT + _JSON_SYSTEM_SUFFIX,
+            user_prompt=_user_prompt(raw_query),
+            response_mime_type="application/json",
             temperature=0.1,
         )
 
-    response = await with_litellm_retry(_call)
-    text = response.choices[0].message.content
+    text = await with_gemini_retry(_call)
     if not text:
         raise ValueError(f"Model {model} returned empty router response")
     return parse_router_json(text)

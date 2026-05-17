@@ -1,4 +1,4 @@
-"""Exponential backoff for LiteLLM rate limits (e.g. Gemini 429)."""
+"""Exponential backoff for Gemini rate limits."""
 
 from __future__ import annotations
 
@@ -15,26 +15,36 @@ _INITIAL_DELAY_SEC = 1.0
 _BACKOFF_FACTOR = 2.0
 
 
+def _status_code(exc: BaseException) -> int | None:
+    for attr in ("code", "status_code"):
+        value = getattr(exc, attr, None)
+        if isinstance(value, int):
+            return value
+    response = getattr(exc, "response", None)
+    value = getattr(response, "status_code", None)
+    return value if isinstance(value, int) else None
+
+
 def _is_rate_limited(exc: BaseException) -> bool:
-    try:
-        from litellm.exceptions import RateLimitError
-
-        if isinstance(exc, RateLimitError):
-            return True
-    except ImportError:
-        pass
-
+    if _status_code(exc) == 429:
+        return True
     message = str(exc).lower()
-    return "429" in message or "rate limit" in message or "resource exhausted" in message
+    return (
+        "429" in message
+        or "rate limit" in message
+        or "rate_limit" in message
+        or "resource exhausted" in message
+        or "resource_exhausted" in message
+    )
 
 
-async def with_litellm_retry(
+async def with_gemini_retry(
     operation: Callable[[], Awaitable[T]],
     *,
     max_attempts: int = _MAX_ATTEMPTS,
     initial_delay_sec: float = _INITIAL_DELAY_SEC,
 ) -> T:
-    """Run an async LiteLLM call with exponential backoff on 429 / rate limits."""
+    """Run an async Gemini SDK call with exponential backoff on 429/rate limits."""
     delay = initial_delay_sec
     last_exc: BaseException | None = None
 
@@ -46,7 +56,7 @@ async def with_litellm_retry(
             if not _is_rate_limited(exc) or attempt >= max_attempts:
                 raise
             logger.warning(
-                "LiteLLM rate limited (attempt {}/{}), retrying in {:.1f}s: {}",
+                "Gemini rate limited (attempt {}/{}), retrying in {:.1f}s: {}",
                 attempt,
                 max_attempts,
                 delay,

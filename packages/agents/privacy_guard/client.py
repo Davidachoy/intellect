@@ -1,4 +1,4 @@
-"""Reconstruction-risk classification via LiteLLM (OpenAI) or Featherless."""
+"""Reconstruction-risk classification via Featherless."""
 
 from __future__ import annotations
 
@@ -8,12 +8,10 @@ import re
 from typing import Any
 
 import httpx
-from litellm import acompletion
 from loguru import logger
 
-from litellm_retry import with_litellm_retry
 from model_registry import (
-    OPENAI_DEFAULT_CHAT,
+    FEATHERLESS_DEFAULT_PRIVACY_MODEL,
     attribution_from_invocation,
     configured_model_for_node,
     ensure_env_loaded,
@@ -27,7 +25,7 @@ from privacy_guard.prompts import (
 from shared.models.agent import ModelAttributionEntry
 
 FEATHERLESS_BASE_URL = "https://api.featherless.ai/v1"
-DEFAULT_PRIVACY_MODEL = OPENAI_DEFAULT_CHAT
+DEFAULT_PRIVACY_MODEL = FEATHERLESS_DEFAULT_PRIVACY_MODEL
 _JSON_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
 
 
@@ -37,21 +35,13 @@ def _featherless_api_key() -> str | None:
     return key or None
 
 
-def _openai_api_key() -> str | None:
-    ensure_env_loaded()
-    key = os.getenv("OPENAI_API_KEY", "").strip()
-    return key or None
-
-
 def _privacy_backend() -> str:
     ensure_env_loaded()
     explicit = os.getenv("PRIVACY_GUARD_BACKEND", "").strip().lower()
-    if explicit in ("litellm", "openai", "chatgpt"):
-        return "litellm"
+    if explicit in ("heuristic", "rules", "local"):
+        return "heuristic"
     if explicit == "featherless":
         return "featherless"
-    if _openai_api_key():
-        return "litellm"
     if _featherless_api_key():
         return "featherless"
     return "heuristic"
@@ -89,36 +79,6 @@ def _heuristic_fallback(query: str, *, model: str | None, backend: str) -> tuple
     log_attribution(entry)
     reason = None if safe else "Query appears designed to reconstruct individual records"
     return safe, reason, entry
-
-
-async def _classify_with_litellm(query: str) -> tuple[bool, str | None, ModelAttributionEntry]:
-    model = _privacy_model()
-
-    async def _call() -> object:
-        return await acompletion(
-            model=model,
-            messages=[
-                {"role": "system", "content": RECONSTRUCTION_SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": RECONSTRUCTION_USER_TEMPLATE.format(query=query.strip()),
-                },
-            ],
-            temperature=0.0,
-            max_tokens=256,
-            response_format={"type": "json_object"},
-        )
-
-    try:
-        response = await with_litellm_retry(_call)
-        text = response.choices[0].message.content
-        if not text:
-            raise ValueError("Empty reconstruction classifier response")
-        parsed = _parse_reconstruction_payload(text)
-        return _interpret_payload(parsed, model=model, backend="litellm")
-    except Exception as exc:
-        logger.warning("OpenAI/LiteLLM reconstruction check failed ({}), using heuristic", exc)
-        return _heuristic_fallback(query, model=model, backend="heuristic")
 
 
 async def _classify_with_featherless(query: str) -> tuple[bool, str | None, ModelAttributionEntry]:
@@ -170,12 +130,7 @@ async def classify_reconstruction_with_featherless(
     is_safe is True when the query is not a reconstruction attempt.
     """
     backend = _privacy_backend()
-    if backend == "litellm":
-        if not _openai_api_key():
-            logger.warning("OPENAI_API_KEY missing; using heuristic reconstruction check")
-            return _heuristic_fallback(query, model=None, backend="heuristic")
-        return await _classify_with_litellm(query)
     if backend == "featherless":
         return await _classify_with_featherless(query)
-    logger.warning("No LLM backend for privacy guard; using heuristic reconstruction check")
+    logger.warning("FEATHERLESS_API_KEY missing; using heuristic reconstruction check")
     return _heuristic_fallback(query, model=None, backend="heuristic")

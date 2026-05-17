@@ -23,7 +23,7 @@ async def query_router_node(state: QueryState) -> dict[str, object]:
     try:
         routed = await route_query_with_attribution(raw_query)
     except Exception as exc:
-        logger.exception("Query router failed")
+        logger.warning("Query router failed: {}", exc)
         return {
             "structured_query": {},
             "target_agent_ids": [],

@@ -7,19 +7,18 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from litellm import acompletion
 from loguru import logger
 
 from explainer.prompts import EXPLAINER_SYSTEM_PROMPT, EXPLAINER_USER_TEMPLATE
-from litellm_retry import with_litellm_retry
+from gemini_client import GEMINI_FLASH_MODEL, generate_gemini_text
+from gemini_retry import with_gemini_retry
 from model_registry import (
-    GEMINI_DEFAULT_FLASH,
     attribution_from_invocation,
     log_attribution,
 )
 from state import QueryState
 
-_DEFAULT_EXPLAINER_MODEL = GEMINI_DEFAULT_FLASH
+_DEFAULT_EXPLAINER_MODEL = GEMINI_FLASH_MODEL
 
 
 def _ensure_env() -> None:
@@ -47,20 +46,17 @@ async def _generate_explanation(
         record_counts=record_counts,
     )
 
-    async def _call() -> object:
-        return await acompletion(
+    async def _call() -> str:
+        return await generate_gemini_text(
             model=model,
-            messages=[
-                {"role": "system", "content": EXPLAINER_SYSTEM_PROMPT},
-                {"role": "user", "content": user_content},
-            ],
+            system_instruction=EXPLAINER_SYSTEM_PROMPT,
+            user_prompt=user_content,
             temperature=0.2,
         )
 
-    response = await with_litellm_retry(_call)
-    text = (response.choices[0].message.content or "").strip()
+    text = (await with_gemini_retry(_call)).strip()
     attribution = attribution_from_invocation(
-        "explainer", model=model, backend="litellm"
+        "explainer", model=model, backend="google-genai"
     )
     log_attribution(attribution)
     return text, attribution.model_dump()

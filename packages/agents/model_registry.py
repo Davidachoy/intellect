@@ -7,6 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
+from gemini_client import (
+    GEMINI_EMBEDDING_MODEL,
+    GEMINI_FLASH_MODEL,
+    is_gemini_model_name,
+)
 from loguru import logger
 from shared.models.agent import ModelAttributionEntry
 
@@ -15,10 +20,9 @@ TRACK_FEATHERLESS = "featherless"
 TRACK_SPEECHMATICS = "speechmatics"
 TRACK_VULTR = "vultr"
 
-GEMINI_DEFAULT_FLASH = "gemini/gemini-2.0-flash"
-GEMINI_DEFAULT_EMBEDDING = "gemini/gemini-embedding-001"
-OPENAI_DEFAULT_CHAT = "gpt-4o-mini"
-OPENAI_DEFAULT_EMBEDDING = "text-embedding-3-small"
+GEMINI_DEFAULT_FLASH = GEMINI_FLASH_MODEL
+GEMINI_DEFAULT_EMBEDDING = GEMINI_EMBEDDING_MODEL
+FEATHERLESS_DEFAULT_PRIVACY_MODEL = "Qwen/Qwen2.5-7B-Instruct"
 
 
 @dataclass(frozen=True)
@@ -34,36 +38,36 @@ NODE_SPECS: dict[str, NodeModelSpec] = {
     "router": NodeModelSpec(
         node_id="router",
         env_var="ROUTER_MODEL",
-        default_model=OPENAI_DEFAULT_CHAT,
-        default_backend="litellm",
+        default_model=GEMINI_DEFAULT_FLASH,
+        default_backend="google-genai",
         hackathon_tracks=(TRACK_GOOGLE_GEMINI,),
     ),
     "intelligence": NodeModelSpec(
         node_id="intelligence",
         env_var="INTELLIGENCE_MODEL",
-        default_model=OPENAI_DEFAULT_CHAT,
-        default_backend="litellm",
+        default_model=GEMINI_DEFAULT_FLASH,
+        default_backend="google-genai",
         hackathon_tracks=(TRACK_GOOGLE_GEMINI,),
     ),
     "explainer": NodeModelSpec(
         node_id="explainer",
         env_var="EXPLAINER_MODEL",
         default_model=GEMINI_DEFAULT_FLASH,
-        default_backend="litellm",
+        default_backend="google-genai",
         hackathon_tracks=(TRACK_GOOGLE_GEMINI,),
     ),
     "embeddings": NodeModelSpec(
         node_id="embeddings",
         env_var="EMBEDDING_MODEL",
-        default_model=OPENAI_DEFAULT_EMBEDDING,
-        default_backend="litellm",
+        default_model=GEMINI_DEFAULT_EMBEDDING,
+        default_backend="google-genai",
         hackathon_tracks=(TRACK_GOOGLE_GEMINI,),
     ),
     "privacy_guard": NodeModelSpec(
         node_id="privacy_guard",
         env_var="PRIVACY_GUARD_MODEL",
-        default_model=OPENAI_DEFAULT_CHAT,
-        default_backend="litellm",
+        default_model=FEATHERLESS_DEFAULT_PRIVACY_MODEL,
+        default_backend="featherless",
         hackathon_tracks=(TRACK_FEATHERLESS,),
     ),
     "voice_input": NodeModelSpec(
@@ -79,55 +83,34 @@ NODE_SPECS: dict[str, NodeModelSpec] = {
 def ensure_env_loaded() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     load_dotenv(repo_root / ".env", override=False)
-    _apply_openai_defaults()
-    _apply_hackathon_google_track_defaults()
+    _apply_gemini_defaults()
+    _apply_featherless_defaults()
 
 
-def _apply_openai_defaults() -> None:
-    """When LLM_PROVIDER=openai (default), pin ChatGPT + OpenAI embeddings unless already set."""
-    flag = os.getenv("LLM_PROVIDER", "openai").strip().lower()
-    if flag in ("gemini", "google"):
-        return
-    if flag not in ("", "openai", "chatgpt", "gpt"):
-        return
-    if not os.getenv("ROUTER_MODEL", "").strip():
-        os.environ["ROUTER_MODEL"] = OPENAI_DEFAULT_CHAT
-    if not os.getenv("INTELLIGENCE_MODEL", "").strip():
-        os.environ["INTELLIGENCE_MODEL"] = OPENAI_DEFAULT_CHAT
-    if not os.getenv("EMBEDDING_MODEL", "").strip():
-        os.environ["EMBEDDING_MODEL"] = OPENAI_DEFAULT_EMBEDDING
-    if not os.getenv("PRIVACY_GUARD_MODEL", "").strip():
-        os.environ["PRIVACY_GUARD_MODEL"] = OPENAI_DEFAULT_CHAT
-    if not os.getenv("PRIVACY_GUARD_BACKEND", "").strip():
-        os.environ["PRIVACY_GUARD_BACKEND"] = "litellm"
-
-
-def _apply_hackathon_google_track_defaults() -> None:
-    """Optional: pin Gemini models for hackathon demos without removing LiteLLM flexibility."""
-    flag = os.getenv("HACKATHON_GOOGLE_TRACK", "").strip().lower()
-    if flag not in ("1", "true", "yes", "on"):
-        return
+def _apply_gemini_defaults() -> None:
+    """Pin all non-privacy model defaults to Gemini."""
     if not os.getenv("ROUTER_MODEL", "").strip():
         os.environ["ROUTER_MODEL"] = GEMINI_DEFAULT_FLASH
     if not os.getenv("INTELLIGENCE_MODEL", "").strip():
         os.environ["INTELLIGENCE_MODEL"] = GEMINI_DEFAULT_FLASH
+    if not os.getenv("EXPLAINER_MODEL", "").strip():
+        os.environ["EXPLAINER_MODEL"] = GEMINI_DEFAULT_FLASH
     if not os.getenv("EMBEDDING_MODEL", "").strip():
         os.environ["EMBEDDING_MODEL"] = GEMINI_DEFAULT_EMBEDDING
-    logger.info(
-        "HACKATHON_GOOGLE_TRACK enabled — defaulting router/intelligence/embeddings to Gemini"
-    )
+
+
+def _apply_featherless_defaults() -> None:
+    if not os.getenv("PRIVACY_GUARD_MODEL", "").strip():
+        os.environ["PRIVACY_GUARD_MODEL"] = FEATHERLESS_DEFAULT_PRIVACY_MODEL
+    if not os.getenv("PRIVACY_GUARD_BACKEND", "").strip():
+        os.environ["PRIVACY_GUARD_BACKEND"] = "featherless"
 
 
 def infer_provider(model: str | None) -> str:
     if not model:
         return "heuristic"
-    lower = model.lower()
-    if lower.startswith("gemini/") or "gemini" in lower:
+    if is_gemini_model_name(model):
         return "google"
-    if lower.startswith("openai/") or "gpt" in lower:
-        return "openai"
-    if lower.startswith("anthropic/") or "claude" in lower:
-        return "anthropic"
     return "unknown"
 
 
@@ -141,7 +124,16 @@ def configured_model_for_node(node_id: str) -> str | None:
         return None
     ensure_env_loaded()
     value = os.getenv(spec.env_var, "").strip()
-    return value or spec.default_model or None
+    model = value or spec.default_model or None
+    if TRACK_GOOGLE_GEMINI in spec.hackathon_tracks and not is_gemini_model_name(model):
+        logger.warning(
+            "{} model={!r} is not Gemini; using {}",
+            node_id,
+            model,
+            spec.default_model,
+        )
+        return spec.default_model
+    return model
 
 
 def _hackathon_tracks_for(
@@ -191,6 +183,8 @@ def attribution_from_invocation(
     backend: str,
 ) -> ModelAttributionEntry:
     provider = infer_provider(model) if model else backend
+    if backend == "featherless":
+        provider = "featherless"
     if backend == "heuristic":
         provider = "heuristic"
     used_gemini = is_gemini_model(model)

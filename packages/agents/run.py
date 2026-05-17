@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
 import uuid
 from collections.abc import Awaitable, Callable
@@ -81,18 +80,10 @@ def _print_attribution_summary(state: QueryState) -> None:
         gemini_flag = " [Gemini]" if used else ""
         print(f"  {node}: {model}{gemini_flag}  tracks=[{tracks}]")
 
-    hackathon_mode = os.getenv("HACKATHON_GOOGLE_TRACK", "").lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
     router = attribution.get("router") or {}
-    if hackathon_mode and not router.get("used_gemini"):
+    if not router.get("used_gemini"):
         print(
-            "\n  Router did not call Gemini. For the Google track demo, set in .env:\n"
-            "    ROUTER_MODEL=gemini/gemini-2.0-flash\n"
-            "  or HACKATHON_GOOGLE_TRACK=true (with GEMINI_API_KEY set)\n"
+            "\n  Router did not call Gemini. Set GEMINI_API_KEY to enable Gemini routing.\n"
         )
 
     print("\nConfigured Gemini defaults:", gemini_nodes_summary())
