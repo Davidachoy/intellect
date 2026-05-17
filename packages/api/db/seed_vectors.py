@@ -1,4 +1,4 @@
-"""TASK-016: Embed seed.sql documents into pgvector via LiteLLM.
+"""TASK-016: Embed seed.sql documents into pgvector via Gemini.
 
 Run from repo root (requires agents deps + .env):
 

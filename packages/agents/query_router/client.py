@@ -1,4 +1,4 @@
-"""Router dispatch: model chain (LiteLLM) or heuristic fallback."""
+"""Router dispatch: Gemini model chain or heuristic fallback."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import os
 
 from loguru import logger
 
+from gemini_client import GEMINI_FLASH_MODEL, is_gemini_model_name
 from model_registry import (
     attribution_from_invocation,
     ensure_env_loaded,
@@ -17,20 +18,11 @@ from query_router.llm_parse import is_out_of_scope_output
 from query_router.llm_router import generate_llm_router_output
 from query_router.models import LLMRouterOutput
 
-DEFAULT_MODEL_CHAIN: tuple[str, ...] = (
-    "gpt-4o-mini",
-    "claude-3-5-haiku-latest",
-    "gemini/gemini-2.0-flash",
-)
+DEFAULT_MODEL_CHAIN: tuple[str, ...] = (GEMINI_FLASH_MODEL,)
 
 _LEGACY_PROVIDER_MODELS: dict[str, str] = {
-    "openai": "gpt-4o-mini",
-    "chatgpt": "gpt-4o-mini",
-    "gpt": "gpt-4o-mini",
-    "anthropic": "claude-3-5-haiku-latest",
-    "claude": "claude-3-5-haiku-latest",
-    "gemini": "gemini/gemini-2.0-flash",
-    "google": "gemini/gemini-2.0-flash",
+    "gemini": GEMINI_FLASH_MODEL,
+    "google": GEMINI_FLASH_MODEL,
 }
 
 _HEURISTIC_ALIASES = frozenset({"heuristic", "rules", "local"})
@@ -52,14 +44,20 @@ def _dedupe_models(models: list[str]) -> list[str]:
 
 
 def _model_has_credentials(model: str) -> bool:
-    lower = model.lower()
-    if lower.startswith("openai/") or "gpt" in lower:
-        return bool(os.getenv("OPENAI_API_KEY", "").strip())
-    if lower.startswith("anthropic/") or "claude" in lower:
-        return bool(os.getenv("ANTHROPIC_API_KEY", "").strip())
-    if lower.startswith("gemini/") or "gemini" in lower:
-        return bool(os.getenv("GEMINI_API_KEY", "").strip())
-    return True
+    return is_gemini_model_name(model) and bool(os.getenv("GEMINI_API_KEY", "").strip())
+
+
+def _gemini_models_only(models: list[str]) -> list[str]:
+    gemini_models: list[str] = []
+    for model in models:
+        if is_gemini_model_name(model):
+            gemini_models.append(model)
+        else:
+            logger.warning(
+                "Ignoring non-Gemini router model={!r}; this build supports Gemini only",
+                model,
+            )
+    return gemini_models
 
 
 def _router_mode() -> str:
@@ -90,6 +88,9 @@ def resolve_model_chain(*, filter_missing_keys: bool = True) -> list[str]:
         chain = [mode]
 
     chain = _dedupe_models(chain)
+    chain = _gemini_models_only(chain)
+    if mode == "auto" and not chain:
+        chain = list(DEFAULT_MODEL_CHAIN)
     if filter_missing_keys and mode == "auto":
         chain = [m for m in chain if _model_has_credentials(m)]
     return chain
@@ -123,7 +124,7 @@ def _with_attribution(output: LLMRouterOutput, *, model: str | None, backend: st
 
 
 async def generate_router_output(raw_query: str) -> RouterGenerationResult:
-    """Try ROUTER_MODEL chain via LiteLLM; fall back to heuristic on failure."""
+    """Try ROUTER_MODEL chain via Gemini; fall back to heuristic on failure."""
     models = resolve_model_chain()
     if not models:
         logger.info("Using heuristic query router (no LLM models configured)")
@@ -139,7 +140,7 @@ async def generate_router_output(raw_query: str) -> RouterGenerationResult:
                 logger.info("LLM router incomplete JSON; using heuristic for this query")
                 output = await generate_heuristic_router_output(raw_query)
                 return _with_attribution(output, model=model, backend="heuristic")
-            return _with_attribution(output, model=model, backend="litellm")
+            return _with_attribution(output, model=model, backend="google-genai")
         except Exception as exc:
             last_error = exc
             if not _llm_error_should_fallback(exc):

@@ -7,15 +7,15 @@ class ModelAttributionEntry(BaseModel):
     node: str
     provider: str = Field(
         ...,
-        description="google | openai | anthropic | heuristic | featherless | stub | unknown",
+        description="google | heuristic | featherless | speechmatics | stub | unknown",
     )
     model: str | None = Field(
         default=None,
-        description="LiteLLM model id or Featherless catalog id; null for heuristic.",
+        description="Gemini model id or Featherless catalog id; null for heuristic.",
     )
     backend: str = Field(
         ...,
-        description="litellm | heuristic | featherless | speechmatics | stub",
+        description="google-genai | heuristic | featherless | speechmatics | stub",
     )
     hackathon_tracks: list[str] = Field(
         default_factory=list,

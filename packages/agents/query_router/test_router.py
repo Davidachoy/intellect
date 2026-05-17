@@ -58,7 +58,7 @@ def _mock_generation(llm_output: LLMRouterOutput) -> RouterGenerationResult:
     return RouterGenerationResult(
         output=llm_output,
         attribution=attribution_from_invocation(
-            "router", model="gpt-4o-mini", backend="litellm"
+            "router", model="gemini-3-flash-preview", backend="google-genai"
         ),
     )
 

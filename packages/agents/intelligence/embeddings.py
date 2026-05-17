@@ -1,11 +1,15 @@
-"""Query embeddings for RAG (OpenAI or Gemini via LiteLLM)."""
+"""Query embeddings for RAG via Gemini Embedding API."""
 
 from __future__ import annotations
 
-from litellm import aembedding
 from loguru import logger
 
-from litellm_retry import with_litellm_retry
+from gemini_client import (
+    GEMINI_EMBEDDING_DIMENSIONS,
+    GEMINI_EMBEDDING_MODEL,
+    embed_gemini_texts,
+)
+from gemini_retry import with_gemini_retry
 from model_registry import (
     attribution_from_invocation,
     configured_model_for_node,
@@ -13,16 +17,16 @@ from model_registry import (
     log_attribution,
 )
 
-EMBEDDING_DIMENSIONS = 768
+EMBEDDING_DIMENSIONS = GEMINI_EMBEDDING_DIMENSIONS
 
 
 def _embedding_model() -> str:
     ensure_env_loaded()
-    return configured_model_for_node("embeddings") or "text-embedding-3-small"
+    return configured_model_for_node("embeddings") or GEMINI_EMBEDDING_MODEL
 
 
 async def embed_text(text: str) -> list[float]:
-    """Embed a single query string via LiteLLM (OpenAI or Gemini)."""
+    """Embed a single query string via Gemini."""
     vectors = await embed_texts([text], batch_size=1)
     return vectors[0]
 
@@ -32,7 +36,7 @@ async def embed_texts(
     *,
     batch_size: int = 128,
 ) -> list[list[float]]:
-    """Embed many strings in batches via LiteLLM (OpenAI or Gemini)."""
+    """Embed many strings in batches via Gemini."""
     if not texts:
         return []
 
@@ -49,20 +53,18 @@ async def embed_texts(
             start,
         )
 
-        async def _call(inputs: list[str] = batch) -> object:
-            return await aembedding(
+        async def _call(inputs: list[str] = batch) -> list[list[float]]:
+            return await embed_gemini_texts(
                 model=model,
-                input=inputs,
-                dimensions=EMBEDDING_DIMENSIONS,
+                texts=inputs,
+                output_dimensionality=EMBEDDING_DIMENSIONS,
             )
 
-        response = await with_litellm_retry(_call)
-        entry = attribution_from_invocation("embeddings", model=model, backend="litellm")
+        batch_vectors = await with_gemini_retry(_call)
+        entry = attribution_from_invocation("embeddings", model=model, backend="google-genai")
         log_attribution(entry)
 
-        ordered = sorted(response.data, key=lambda row: row.get("index", 0))
-        for row in ordered:
-            vector = list(row["embedding"])
+        for vector in batch_vectors:
             if len(vector) != EMBEDDING_DIMENSIONS:
                 logger.warning(
                     "Unexpected embedding size {} (expected {})",
