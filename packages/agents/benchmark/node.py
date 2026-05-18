@@ -23,7 +23,12 @@ async def benchmark_node(state: QueryState) -> dict[str, object]:
         }
 
     structured = state.get("structured_query") or {}
-    result = await aggregate_sector_benchmark(structured)
+    result = await aggregate_sector_benchmark(
+        structured,
+        raw_query=state.get("raw_query", ""),
+        target_company_id=state.get("target_company_id") or None,
+        mentioned_companies=(structured.get("mentioned_companies") or None),
+    )
 
     logger.info(
         "benchmark: query_id={} companies_in_sector={}",
@@ -33,10 +38,13 @@ async def benchmark_node(state: QueryState) -> dict[str, object]:
         else 0,
     )
 
-    return {
+    updates: dict[str, object] = {
         "intelligence_results": [],
         "raw_insights": result.get("raw_insights") or [],
         "record_counts": result.get("record_counts") or [],
         "response": result.get("response") or "",
         "model_attribution": attribution_map,
     }
+    if result.get("target_company_id"):
+        updates["target_company_id"] = result["target_company_id"]
+    return updates

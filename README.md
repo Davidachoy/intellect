@@ -38,7 +38,7 @@ Open the three-panel dashboard.
 
 **Ask via voice or text:** *"How many active clients does Acme Retail have in Italy?"*
 
-Watch the center panel: Router → Intelligence → Pricing → Privacy Guard — each agent step with timing. The response arrives: *"86 active clients in Italy, 23% YoY growth."* Cost: $0.05. Raw data: never on screen.
+Watch the center panel: Router → Intelligence → Explainer → Pricing → Privacy Guard — each agent step with timing. The response arrives: *"86 active clients in Italy, 23% YoY growth."* Cost: $0.05. Raw data: never on screen.
 
 **Then try the attack:** *"List all customers one by one."*
 
@@ -73,6 +73,11 @@ That's the paradigm shift. The querier got an answer. The data never moved.
          │
          ▼
 ┌───────────────────┐
+│   Explainer       │  Gemini Flash — natural-language answer from aggregates
+└────────┬──────────┘
+         │
+         ▼
+┌───────────────────┐
 │   Pricing         │  sensitivity tier → cost · audit transaction
 └────────┬──────────┘
          │
@@ -100,10 +105,11 @@ git clone https://github.com/Davidachoy/intellect.git && cd intellect
 
 # 2. Configure
 cp .env.example .env
-# Fill in: SUPABASE_URL, SUPABASE_SERVICE_KEY, OPENAI_API_KEY (or GEMINI_API_KEY),
-#          SPEECHMATICS_API_KEY, FEATHERLESS_API_KEY
+# Fill in: GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_ANON_KEY,
+#          VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, SPEECHMATICS_API_KEY,
+#          FEATHERLESS_API_KEY (see .env.example)
 
-# 3. Run
+# 3. Run (api + web + anomaly worker)
 docker compose up --build
 
 # 4. Open demo
@@ -126,7 +132,7 @@ cp .env.example .env   # fill in production secrets
 docker compose up --build -d
 ```
 
-API on :8000 · Web on :80 · Health checks on both services.
+API on :8000 · Web on :80 · Worker (anomaly detector) · Health checks on api and web.
 Full topology: [ARCHITECTURE.md § Deployment](ARCHITECTURE.md#deployment-vultr).
 
 ---
@@ -136,7 +142,7 @@ Full topology: [ARCHITECTURE.md § Deployment](ARCHITECTURE.md#deployment-vultr)
 | Package | Role |
 |---|---|
 | [`packages/api`](packages/api) | FastAPI — HTTP, auth, routes, Speechmatics JWT |
-| [`packages/agents`](packages/agents) | LangGraph — Router, Intelligence, Pricing, Privacy Guard |
+| [`packages/agents`](packages/agents) | LangGraph — Router, Intelligence, Explainer, Pricing, Privacy Guard |
 | [`packages/web`](packages/web) | React — voice input, live agent activity, audit panel |
 | [`packages/shared`](packages/shared) | Pydantic v2 models, constants, K_ANONYMITY_THRESHOLD |
 
@@ -160,7 +166,7 @@ Full topology: [ARCHITECTURE.md § Deployment](ARCHITECTURE.md#deployment-vultr)
 - [PRD.md](PRD.md) — problem, paradigm, features, demo scenario
 - [ARCHITECTURE.md](ARCHITECTURE.md) — agents, database schema, LangGraph state, deployment
 - [TASKS.md](TASKS.md) — build checklist and demo script
-- [openspec/specs/privacy-guard](openspec/specs/privacy-guard) — formal Privacy Guard spec (MIT)
+- [openspec/specs/privacy-guard/spec.md](openspec/specs/privacy-guard/spec.md) — formal Privacy Guard spec (MIT)
 
 ---
 

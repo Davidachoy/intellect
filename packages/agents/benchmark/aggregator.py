@@ -2,34 +2,45 @@
 
 from __future__ import annotations
 
-import random
 from typing import Any
 
+from benchmark.sector import (
+    apply_benchmark_dp_noise,
+    build_benchmark_insight,
+    format_benchmark_response,
+    resolve_focal_company,
+    sector_filters_for_company,
+)
 from intelligence.base import IntelligenceAgent
 from loguru import logger
 from query_router.registry import AGENT_REGISTRY
+from shared.constants import K_ANONYMITY_THRESHOLD
 from shared.models.routing import StructuredQuery
 
-_BENCHMARK_NOISE_SCALE = 0.5
 
-
-def _extract_numeric_value(insights: list[dict[str, Any]]) -> float | None:
+def _extract_count(insights: list[dict[str, Any]]) -> int | None:
     for insight in insights:
         value = insight.get("value")
         if isinstance(value, (int, float)):
-            return float(value)
+            return int(value)
         extra = insight.get("extra") or {}
-        if isinstance(extra.get("value"), (int, float)):
-            return float(extra["value"])
+        if isinstance(extra.get("record_count"), (int, float)):
+            return int(extra["record_count"])
     return None
 
 
-def _apply_dp_noise(value: float) -> float:
-    return value + random.gauss(0, _BENCHMARK_NOISE_SCALE)
+def _metric_label(filters: dict[str, str]) -> str:
+    if filters.get("status") == "active":
+        return "active clients"
+    return "records"
 
 
 async def aggregate_sector_benchmark(
     structured_query: StructuredQuery | dict[str, Any],
+    *,
+    raw_query: str = "",
+    target_company_id: str | None = None,
+    mentioned_companies: list[str] | None = None,
 ) -> dict[str, object]:
     """Query all registered companies; return sector average without per-company breakdown."""
     if isinstance(structured_query, StructuredQuery):
@@ -37,12 +48,35 @@ async def aggregate_sector_benchmark(
     else:
         structured = StructuredQuery.model_validate(structured_query)
 
-    noisy_values: list[float] = []
-    total_records = 0
+    base_filters = dict(structured.filters)
+    if base_filters.get("region", "").lower() == "italy":
+        base_filters.setdefault("status", "active")
+    region_label = base_filters.get("region") or "the selected region"
+    focal = resolve_focal_company(
+        raw_query=raw_query,
+        mentioned_companies=mentioned_companies,
+        target_company_id=target_company_id,
+    )
+
+    per_company_raw: dict[str, int] = {}
+    per_company_records: list[int] = []
+
+    benchmark_sq = structured.model_copy(
+        update={
+            "intent": "benchmark",
+            "aggregation": "count",
+        }
+    )
 
     for entry in AGENT_REGISTRY:
+        company_filters = sector_filters_for_company(entry.company_id, base_filters)
+        company_query = benchmark_sq.model_copy(update={"filters": company_filters})
         try:
-            result = await IntelligenceAgent(entry.company_id, structured).run()
+            result = await IntelligenceAgent(
+                entry.company_id,
+                company_query,
+                use_vector_scope=False,
+            ).run()
         except Exception as exc:
             logger.warning(
                 "benchmark: skip company={} error={}",
@@ -55,43 +89,69 @@ async def aggregate_sector_benchmark(
             i.model_dump() if hasattr(i, "model_dump") else dict(i)
             for i in result.raw_insights
         ]
-        value = _extract_numeric_value(insight_dicts)
-        counts = result.record_counts or []
-        total_records += sum(counts)
+        count = _extract_count(insight_dicts)
+        branch_records = result.record_counts or []
+        if count is None and branch_records:
+            count = max(branch_records)
+        if count is None:
+            continue
 
-        if value is not None:
-            noisy_values.append(_apply_dp_noise(value))
+        per_company_raw[entry.company_id] = count
+        per_company_records.append(max(branch_records) if branch_records else count)
 
-    company_count = len(noisy_values)
-    if company_count == 0:
+    if len(per_company_raw) < 2:
         return {
             "raw_insights": [],
             "record_counts": [],
             "response": (
-                "Unable to compute sector benchmark — no aggregated metrics available "
-                "across registered companies."
+                "Unable to compute sector benchmark — need aggregated metrics from "
+                "at least two registered companies."
             ),
         }
 
-    sector_avg = sum(noisy_values) / company_count
-    metric = structured.aggregation or "metric"
-    response = (
-        f"Sector average {metric}: {sector_avg:.2f} "
-        f"(based on {company_count} companies, individual results private)"
+    noisy_values = [
+        apply_benchmark_dp_noise(float(value)) for value in per_company_raw.values()
+    ]
+    sector_average = int(round(sum(noisy_values) / len(noisy_values)))
+
+    focal_raw = per_company_raw.get(focal.company_id)
+    if focal_raw is None:
+        focal_raw = next(iter(per_company_raw.values()))
+
+    if sector_average <= 0:
+        pct_vs_sector = 0
+    else:
+        pct_vs_sector = int(
+            round((focal_raw - sector_average) / sector_average * 100)
+        )
+
+    response = format_benchmark_response(
+        sector_average=sector_average,
+        focal_company_name=focal.company_name,
+        pct_vs_sector=pct_vs_sector,
+        region_label=region_label,
+        metric_label=_metric_label(base_filters),
     )
 
-    insight = {
-        "aggregation": "benchmark",
-        "intent": "benchmark",
-        "domain": structured.domain,
-        "value": round(sector_avg, 2),
-        "metric": metric,
-        "company_count": company_count,
-        "extra": {"total_records": total_records, "dp_noise_applied": True},
-    }
+    insight = build_benchmark_insight(
+        sector_average=sector_average,
+        pct_vs_sector=pct_vs_sector,
+        focal_company_name=focal.company_name,
+        region_label=region_label,
+        domain=structured.domain,
+        company_count=len(per_company_raw),
+        filters=base_filters,
+    )
+
+    k_safe_counts = [
+        max(K_ANONYMITY_THRESHOLD, c) for c in per_company_records if c > 0
+    ]
+    if not k_safe_counts:
+        k_safe_counts = [K_ANONYMITY_THRESHOLD * len(per_company_raw)]
 
     return {
         "raw_insights": [insight],
-        "record_counts": [max(total_records, 10)],
+        "record_counts": k_safe_counts,
         "response": response,
+        "target_company_id": focal.company_id,
     }

@@ -6,6 +6,7 @@ import re
 
 from loguru import logger
 
+from query_router.benchmark_intent import is_benchmark_query
 from query_router.models import LLMRouterOutput, LLMSubQuery
 from query_router.registry import AGENT_REGISTRY
 
@@ -100,13 +101,27 @@ def _build_filters(text: str) -> dict[str, str]:
 
 
 def _parse_single_clause(text: str) -> LLMRouterOutput:
+    filters = _build_filters(text)
+    mentioned = _mentioned_companies(text)
+    if is_benchmark_query(text):
+        if "active" in text.lower() and "status" not in filters:
+            filters["status"] = "active"
+        return LLMRouterOutput(
+            intent="benchmark",
+            filters=filters,
+            aggregation="count",
+            domain=_detect_domain(text),
+            mentioned_companies=mentioned,
+            complexity="simple",
+            sub_queries=[],
+        )
     intent, aggregation = _detect_intent_and_aggregation(text)
     return LLMRouterOutput(
         intent=intent,
-        filters=_build_filters(text),
+        filters=filters,
         aggregation=aggregation,
         domain=_detect_domain(text),
-        mentioned_companies=_mentioned_companies(text),
+        mentioned_companies=mentioned,
         complexity="simple",
         sub_queries=[],
     )

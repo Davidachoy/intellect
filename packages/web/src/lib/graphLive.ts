@@ -117,7 +117,12 @@ export function applyGraphNodeEnd(
 ): GraphLiveState {
   let nodes = [...state.nodes]
 
-  if (node === 'intelligence') {
+  if (node === 'benchmark') {
+    const preview = String(update.response ?? update.preview ?? '').slice(0, 120)
+    nodes = setNodeStatus(nodes, 'benchmark', 'done', preview || 'Sector aggregate')
+    nodes = setNodeStatus(nodes, 'intelligence', 'skipped', 'Sector benchmark path')
+    nodes = setNodeStatus(nodes, 'synthesis', 'skipped', 'N/A')
+  } else if (node === 'intelligence') {
     const rawResults =
       (update.intelligence_results as Array<Record<string, unknown>>) ?? []
     const companies =

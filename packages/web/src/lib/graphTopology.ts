@@ -2,18 +2,20 @@
 
 export const GRAPH_NODES = [
   { id: 'query_router', label: 'Query Router' },
+  { id: 'benchmark', label: 'Benchmark' },
   { id: 'intelligence', label: 'Intelligence' },
-  { id: 'synthesis', label: 'Synthesis' },
   { id: 'explainer', label: 'Explainer' },
+  { id: 'synthesis', label: 'Synthesis' },
   { id: 'pricing', label: 'Pricing' },
   { id: 'privacy_guard', label: 'Privacy Guard' },
   { id: 'end', label: 'END' },
 ] as const
 
 export const GRAPH_EDGES = [
+  { id: 'e-router-bench', source: 'query_router', target: 'benchmark' },
   { id: 'e-router-intel', source: 'query_router', target: 'intelligence' },
-  { id: 'e-intel-synth', source: 'intelligence', target: 'synthesis' },
-  { id: 'e-synth-explainer', source: 'synthesis', target: 'explainer' },
+  { id: 'e-bench-explainer', source: 'benchmark', target: 'explainer' },
+  { id: 'e-intel-explainer', source: 'intelligence', target: 'explainer' },
   { id: 'e-explainer-pricing', source: 'explainer', target: 'pricing' },
   { id: 'e-pricing-privacy', source: 'pricing', target: 'privacy_guard' },
   { id: 'e-privacy-end', source: 'privacy_guard', target: 'end' },
@@ -21,8 +23,8 @@ export const GRAPH_EDGES = [
 
 export const PIPELINE_NODE_ORDER = [
   'query_router',
+  'benchmark',
   'intelligence',
-  'synthesis',
   'explainer',
   'pricing',
   'privacy_guard',

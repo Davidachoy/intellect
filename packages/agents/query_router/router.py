@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from loguru import logger
 
 from privacy_guard.checks import check_reconstruction
+from query_router.benchmark_intent import is_benchmark_query
 from query_router.client import generate_router_output
 from query_router.generation import RouterGenerationResult
 from query_router.llm_parse import is_out_of_scope_output
@@ -36,6 +37,29 @@ def _build_structured(llm: LLMRouterOutput) -> StructuredQuery:
         aggregation=llm.aggregation,
         domain=llm.domain,
         sub_queries=sub_queries,
+        mentioned_companies=list(llm.mentioned_companies),
+    )
+
+
+def _apply_benchmark_intent(raw_query: str, llm: LLMRouterOutput) -> LLMRouterOutput:
+    """Force benchmark routing when NL query matches sector-comparison patterns."""
+    if not is_benchmark_query(raw_query):
+        return llm
+    filters = dict(llm.filters)
+    if not filters.get("region") and "italy" in raw_query.lower():
+        filters["region"] = "Italy"
+    if "italy" in raw_query.lower():
+        filters.setdefault("region", "Italy")
+    if ("active" in raw_query.lower() or "client" in raw_query.lower()) and "status" not in filters:
+        filters["status"] = "active"
+    return LLMRouterOutput(
+        intent="benchmark",
+        filters=filters,
+        aggregation="count",
+        domain=llm.domain or "customers",
+        mentioned_companies=llm.mentioned_companies,
+        complexity=llm.complexity,
+        sub_queries=[],
     )
 
 
@@ -74,7 +98,7 @@ def _collect_target_agent_ids(
 
 
 def _build_routed(generation: RouterGenerationResult, *, raw_query: str) -> RoutedQuery:
-    llm_output = generation.output
+    llm_output = _apply_benchmark_intent(raw_query, generation.output)
     structured = _build_structured(llm_output)
     target_agent_ids = _collect_target_agent_ids(
         structured,

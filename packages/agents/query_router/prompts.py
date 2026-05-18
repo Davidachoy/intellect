@@ -13,8 +13,9 @@ entry per distinct question. Each sub-query must have its own intent, filters, a
 
 Rules:
 - intent: the analytical goal (count, average, percentage, sum, compare, trend, breakdown, benchmark)
-- Use intent "benchmark" when the user asks for sector-wide, cross-company, or industry averages
-  (e.g. "sector average churn", "benchmark across registered companies") without naming one company
+- Use intent "benchmark" when the user asks for sector-wide, cross-company, or industry comparison
+  (compare, vs, sector, industry, benchmark, "how does X compare") — including when a company
+  name is mentioned (e.g. "How does Acme Retail compare to the sector in Italy?")
 - filters: only non-PII dimensions mentioned (region, status, segment, age_range, outcome, etc.)
 - aggregation: the operation Intelligence Agents should run (count, average, percentage, sum, group_by_region)
 - domain: best-matching domain string from the list above

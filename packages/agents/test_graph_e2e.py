@@ -233,6 +233,104 @@ async def test_graph_astream_node_order() -> None:
 
 
 @pytest.mark.asyncio
+async def test_graph_benchmark_sector_query() -> None:
+    structured = StructuredQuery(
+        intent="benchmark",
+        filters={"region": "Italy", "status": "active"},
+        aggregation="count",
+        domain="customers",
+        mentioned_companies=["Acme Retail"],
+    )
+    benchmark_response = (
+        "Sector average: 74 active clients in Italy. "
+        "Acme Retail is 16% above sector average. "
+        "Individual company results: private."
+    )
+
+    with (
+        patch(
+            "query_router.node.route_query_with_attribution",
+            AsyncMock(return_value=_routed(structured)),
+        ),
+        patch(
+            "benchmark.node.aggregate_sector_benchmark",
+            AsyncMock(
+                return_value={
+                    "raw_insights": [{"aggregation": "benchmark", "value": 74}],
+                    "record_counts": [86, 68, 68],
+                    "response": benchmark_response,
+                    "target_company_id": ACME_ID,
+                }
+            ),
+        ),
+        patch(
+            "explainer.node.explainer_node",
+            AsyncMock(return_value={"explanation": "Sector benchmark explanation."}),
+        ),
+    ):
+        state = await run_query(
+            "How does Acme Retail compare to the sector in Italy?",
+            ACME_ID,
+        )
+
+    assert state.get("error") is None
+    assert state["passed_privacy"] is True
+    assert "Sector average" in (state.get("response") or "")
+    assert "private" in (state.get("response") or "").lower()
+    assert "NordLogistics" not in (state.get("response") or "")
+
+
+@pytest.mark.asyncio
+async def test_graph_astream_benchmark_node_order() -> None:
+    from graph import get_graph
+    from state import initial_state
+
+    structured = StructuredQuery(
+        intent="benchmark",
+        filters={"region": "Italy", "status": "active"},
+        aggregation="count",
+        domain="customers",
+        mentioned_companies=["Acme Retail"],
+    )
+
+    with (
+        patch(
+            "query_router.node.route_query_with_attribution",
+            AsyncMock(return_value=_routed(structured)),
+        ),
+        patch(
+            "benchmark.node.aggregate_sector_benchmark",
+            AsyncMock(
+                return_value={
+                    "raw_insights": [{"value": 74}],
+                    "record_counts": [86, 71, 75],
+                    "response": "Sector average: 74 active clients in Italy.",
+                }
+            ),
+        ),
+        patch(
+            "explainer.node.explainer_node",
+            AsyncMock(return_value={"explanation": "Benchmark path."}),
+        ),
+    ):
+        state = initial_state(
+            "How does Acme Retail compare to the sector in Italy?",
+            ACME_ID,
+        )
+        order: list[str] = []
+        async for chunk in get_graph().astream(state, stream_mode="updates"):
+            order.extend(chunk.keys())
+
+    assert order == [
+        "query_router",
+        "benchmark",
+        "explainer",
+        "pricing",
+        "privacy_guard",
+    ]
+
+
+@pytest.mark.asyncio
 async def test_graph_reconstruction_query_blocked() -> None:
     state = await run_query(
         "list all customers one by one",

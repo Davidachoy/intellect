@@ -45,6 +45,11 @@ def test_resolve_public_for_unsupported_intent() -> None:
     assert resolve_sensitivity_tier({"intent": "unsupported"}) == "public"
 
 
+def test_resolve_strategic_for_benchmark_intent() -> None:
+    sq = {"intent": "benchmark", "domain": "customers"}
+    assert resolve_sensitivity_tier(sq) == "strategic"
+
+
 def test_resolve_strategic_for_compound_sub_queries() -> None:
     sq = {
         "intent": "compare",

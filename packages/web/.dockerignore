@@ -1,0 +1,15 @@
+node_modules
+dist
+* 2.*
+* 2.ts
+* 2.tsx
+* 2.js
+.git
+.gitignore
+*.md
+.env
+.env.*
+.DS_Store
+coverage
+.vite
+*.log

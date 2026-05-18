@@ -6,7 +6,7 @@
 
 ## Phase 1 — Project Foundation
 
-### TASK-001: Monorepo base setup
+### TASK-001: Monorepo base setup [x]
 
 **Agent:** Background Agent **Input:** Repo root is empty except for README, .gitignore, ARCHITECTURE.md, TASKS.md, core.mdc **Output:**
 
@@ -19,7 +19,7 @@
 
 ---
 
-### TASK-002: Supabase schema
+### TASK-002: Supabase schema [x]
 
 **Agent:** Background Agent **Input:** ARCHITECTURE.md database schema section **Output:**
 
@@ -32,7 +32,7 @@
 
 ---
 
-### TASK-003: Shared Pydantic models
+### TASK-003: Shared Pydantic models [x]
 
 **Agent:** Background Agent **Input:** ARCHITECTURE.md models section **Output:** `packages/shared/models/` with:
 
@@ -65,7 +65,7 @@ class AuditEntry(BaseModel): ...
 
 ## Phase 2 — Agent System
 
-### TASK-004: LangGraph graph skeleton
+### TASK-004: LangGraph graph skeleton [x]
 
 **Agent:** Background Agent **Input:** ARCHITECTURE.md agent flow section, `packages/agents/state.py` **Output:**
 
@@ -76,7 +76,7 @@ class AuditEntry(BaseModel): ...
 
 ---
 
-### TASK-005: Query Router Agent
+### TASK-005: Query Router Agent [x]
 
 **Agent:** Background Agent **Input:** `packages/agents/graph.py`, Gemini API key in .env **Output:** `packages/agents/query_router/node.py` that:
 
@@ -89,7 +89,7 @@ class AuditEntry(BaseModel): ...
 
 ---
 
-### TASK-006: Intelligence Agent — RAG core
+### TASK-006: Intelligence Agent — RAG core [x]
 
 **Agent:** Background Agent **Input:** `packages/agents/state.py`, Supabase client, pgvector setup **Output:** `packages/agents/intelligence/` with:
 
@@ -100,7 +100,7 @@ class AuditEntry(BaseModel): ...
 
 ---
 
-### TASK-007: Privacy Guard Agent
+### TASK-007: Privacy Guard Agent [x]
 
 **Agent:** Background Agent **Input:** `packages/agents/state.py`, `packages/shared/constants.py` (K_ANONYMITY_THRESHOLD = 10) **Output:** `packages/agents/privacy_guard/` with:
 
@@ -118,7 +118,7 @@ class AuditEntry(BaseModel): ...
 
 ---
 
-### TASK-008: Pricing Agent
+### TASK-008: Pricing Agent [x]
 
 **Agent:** Background Agent **Input:** `packages/agents/state.py` **Output:** `packages/agents/pricing/` with:
 
@@ -133,7 +133,7 @@ class AuditEntry(BaseModel): ...
 
 ## Phase 3 — API Layer
 
-### TASK-009: POST /query route
+### TASK-009: POST /query route [x]
 
 **Agent:** Background Agent **Input:** `packages/api/main.py`, `packages/agents/run.py`, shared models **Output:** `packages/api/routes/queries.py` with:
 
@@ -146,7 +146,7 @@ class AuditEntry(BaseModel): ...
 
 ---
 
-### TASK-010: POST /ingest route
+### TASK-010: POST /ingest route [x]
 
 **Agent:** Background Agent **Input:** Supabase client, pgvector **Output:** `packages/api/routes/ingest.py` with:
 
@@ -157,7 +157,7 @@ class AuditEntry(BaseModel): ...
 
 ---
 
-### TASK-011: GET /audit/{query_id} route
+### TASK-011: GET /audit/{query_id} route [ ]
 
 **Agent:** Background Agent **Output:** `packages/api/routes/audit.py`
 
@@ -169,7 +169,7 @@ class AuditEntry(BaseModel): ...
 
 ## Phase 4 — Frontend Demo
 
-### TASK-012: Three-panel demo layout
+### TASK-012: Three-panel demo layout [x]
 
 **Agent:** Background Agent **Input:** `packages/web/src/` **Output:** Main demo layout with three panels side by side:
 
@@ -181,7 +181,7 @@ class AuditEntry(BaseModel): ...
 
 ---
 
-### TASK-013: Speechmatics voice input
+### TASK-013: Speechmatics voice input [x]
 
 **Agent:** Background Agent **Input:** Speechmatics API key, `QueryPanel.tsx` **Output:**
 
@@ -192,7 +192,7 @@ class AuditEntry(BaseModel): ...
 
 ---
 
-### TASK-014: Agent activity live view
+### TASK-014: Agent activity live view [x]
 
 **Agent:** Background Agent **Input:** `AgentActivityPanel.tsx`, audit_log Supabase Realtime **Output:**
 
@@ -204,7 +204,7 @@ class AuditEntry(BaseModel): ...
 
 ---
 
-### TASK-015: Audit panel + cost counter
+### TASK-015: Audit panel + cost counter [x]
 
 **Agent:** Background Agent **Input:** `AuditPanel.tsx`, queries table **Output:**
 
@@ -216,7 +216,7 @@ class AuditEntry(BaseModel): ...
 
 ## Phase 5 — Demo Data & Polish
 
-### TASK-016: Seed realistic demo data
+### TASK-016: Seed realistic demo data [x]
 
 **Agent:** Background Agent **Output:** `packages/api/db/seed_vectors.py` that:
 
@@ -228,7 +228,7 @@ class AuditEntry(BaseModel): ...
 
 ---
 
-### TASK-017: Docker Compose production config
+### TASK-017: Docker Compose production config [x]
 
 **Agent:** Background Agent **Output:** `docker-compose.yml` at repo root with:
 
@@ -241,7 +241,7 @@ class AuditEntry(BaseModel): ...
 
 ## Phase 6 — Hackathon Submission
 
-### TASK-018: README for judges
+### TASK-018: README for judges [x]
 
 **Agent:** Background Agent **Output:** `README.md` with:
 
@@ -255,7 +255,7 @@ class AuditEntry(BaseModel): ...
 
 ---
 
-### TASK-019: OpenSpec specs for Privacy Guard
+### TASK-019: OpenSpec specs for Privacy Guard [x]
 
 **Agent:** Background Agent **Output:** `openspec/specs/privacy-guard/spec.md` with formal requirements:
 

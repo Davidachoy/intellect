@@ -98,6 +98,18 @@ def test_heuristic_compound_query(monkeypatch: pytest.MonkeyPatch) -> None:
     assert NORD_AGENT in result.target_agent_ids
 
 
+@pytest.mark.asyncio
+async def test_heuristic_benchmark_intent_italy_sector() -> None:
+    from query_router.heuristic import generate_heuristic_router_output
+
+    output = await generate_heuristic_router_output(
+        "How does Acme Retail compare to the sector in Italy?"
+    )
+    assert output.intent == "benchmark"
+    assert output.filters.get("region") == "Italy"
+    assert "Acme Retail" in output.mentioned_companies
+
+
 def test_heuristic_compare_with_split(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ROUTER_MODE", "heuristic")
     raw = (

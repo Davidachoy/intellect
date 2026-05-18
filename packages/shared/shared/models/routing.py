@@ -26,6 +26,10 @@ class StructuredQuery(BaseModel):
         default_factory=list,
         description="Decomposed sub-queries for compound questions.",
     )
+    mentioned_companies: list[str] = Field(
+        default_factory=list,
+        description="Company names explicitly referenced in the NL query.",
+    )
 
 
 class RouterResult(BaseModel):

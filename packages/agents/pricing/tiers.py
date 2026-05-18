@@ -28,6 +28,8 @@ def resolve_sensitivity_tier(structured_query: dict | None) -> str:
     intent = sq.get("intent", "")
     if intent == "unsupported":
         return "public"
+    if intent == "benchmark":
+        return "strategic"
 
     sub_queries = sq.get("sub_queries") or []
     if len(sub_queries) > 1:
