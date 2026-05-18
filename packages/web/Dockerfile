@@ -9,7 +9,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-ARG VITE_API_URL=http://localhost:8000
+ARG VITE_API_URL=http://localhost:8001
 ARG VITE_SUPABASE_URL=
 ARG VITE_SUPABASE_ANON_KEY=
 ARG VITE_DEMO_API_KEY=demo-key
