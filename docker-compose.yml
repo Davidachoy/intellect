@@ -6,7 +6,7 @@ services:
     env_file:
       - .env
     environment:
-      CORS_ORIGINS: "http://localhost,http://127.0.0.1,http://localhost:80,http://127.0.0.1:80"
+      CORS_ORIGINS: 'http://localhost,http://127.0.0.1,http://45.76.31.43,http://45.76.31.43:8000,http://qe49bkqdr9i2f9jlfh5nckmt.45.76.31.43.sslip.io,http://okfr7hbhx2xief0pvh2e1q03.45.76.31.43.sslip.io'
     healthcheck:
       test:
         [
@@ -52,7 +52,7 @@ services:
       context: ./packages/web
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:8001}
+        VITE_API_URL: ${VITE_API_URL:-http://okfr7hbhx2xief0pvh2e1q03.45.76.31.43.sslip.io}
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
         VITE_DEMO_API_KEY: ${VITE_DEMO_API_KEY:-demo-key}
