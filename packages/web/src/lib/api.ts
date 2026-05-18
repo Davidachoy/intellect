@@ -1,4 +1,4 @@
-import { config } from './config'
+import { API_URL } from './config'
 import type { QueryEnvelope } from './types'
 
 export class QuerySubmitError extends Error {
@@ -41,7 +41,7 @@ export async function submitQuery(
     body.target_company_id = options.targetCompanyId
   }
 
-  const response = await fetch(`${config.apiUrl}/query`, {
+  const response = await fetch(`${API_URL}/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -76,7 +76,7 @@ export async function submitQueryStream(
     body.target_company_id = options.targetCompanyId
   }
 
-  const response = await fetch(`${config.apiUrl}/query/stream`, {
+  const response = await fetch(`${API_URL}/query/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

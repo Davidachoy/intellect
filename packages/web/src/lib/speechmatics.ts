@@ -1,4 +1,4 @@
-import { config } from './config'
+import { API_URL } from './config'
 
 export class SpeechmaticsJwtError extends Error {
   readonly status: number
@@ -12,7 +12,7 @@ export class SpeechmaticsJwtError extends Error {
 
 /** Fetch a short-lived JWT from the API (keeps SPEECHMATICS_API_KEY server-side). */
 export async function fetchSpeechmaticsJwt(): Promise<string> {
-  const response = await fetch(`${config.apiUrl}/speechmatics/jwt`)
+  const response = await fetch(`${API_URL}/speechmatics/jwt`)
 
   if (!response.ok) {
     let detail = response.statusText
