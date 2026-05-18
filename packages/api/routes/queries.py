@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 
 from agents.graph_events import node_audit_event, summarize_node_update
 from agents.run import run_query
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 from loguru import logger
 from pydantic import BaseModel, Field
 
@@ -19,6 +19,11 @@ from shared.models.query import QueryRequest, QueryResponse
 router = APIRouter(tags=["queries"])
 
 DEFAULT_TARGET_COMPANY_ID = UUID("a0000000-0000-4000-8000-000000000001")
+
+
+@router.options("/query")
+async def query_preflight() -> Response:
+    return Response(status_code=status.HTTP_200_OK)
 
 
 class QueryMeta(BaseModel):

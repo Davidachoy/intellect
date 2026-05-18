@@ -11,6 +11,42 @@ export class QuerySubmitError extends Error {
   }
 }
 
+type ValidationIssue = { msg?: string; loc?: (string | number)[] }
+
+function formatApiErrorDetail(
+  detail: unknown,
+  fallback: string,
+): string {
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    const issues = detail as ValidationIssue[]
+    const messages = issues
+      .map((issue) => {
+        const field = issue.loc?.slice(-1)[0]
+        const msg = issue.msg ?? 'Invalid value'
+        return field ? `${String(field)}: ${msg}` : msg
+      })
+      .filter(Boolean)
+    if (messages.length > 0) return messages.join('; ')
+  }
+  return fallback
+}
+
+async function readApiErrorDetail(
+  response: Response,
+): Promise<string> {
+  const fallback = response.statusText
+  try {
+    const errBody = (await response.json()) as { detail?: unknown }
+    if (errBody.detail !== undefined) {
+      return formatApiErrorDetail(errBody.detail, fallback)
+    }
+  } catch {
+    /* ignore */
+  }
+  return fallback
+}
+
 export interface SubmitQueryOptions {
   targetCompanyId?: string | null
   signal?: AbortSignal
@@ -48,13 +84,7 @@ export async function submitQuery(
   })
 
   if (!response.ok) {
-    let detail = response.statusText
-    try {
-      const errBody = (await response.json()) as { detail?: string }
-      if (errBody.detail) detail = errBody.detail
-    } catch {
-      /* ignore */
-    }
+    const detail = await readApiErrorDetail(response)
     throw new QuerySubmitError(detail, response.status)
   }
 
@@ -84,13 +114,7 @@ export async function submitQueryStream(
   })
 
   if (!response.ok) {
-    let detail = response.statusText
-    try {
-      const errBody = (await response.json()) as { detail?: string }
-      if (errBody.detail) detail = errBody.detail
-    } catch {
-      /* ignore */
-    }
+    const detail = await readApiErrorDetail(response)
     throw new QuerySubmitError(detail, response.status)
   }
 

@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from agents.graph_events import NODE_ORDER
 from agents.run import run_query
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Response, status
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
@@ -30,6 +30,12 @@ from shared.models.query import QueryRequest
 router = APIRouter(tags=["queries"])
 
 
+@router.options("/query/stream")
+async def query_stream_preflight() -> Response:
+    """CORS preflight — no body/auth; CORSMiddleware adds Access-Control-* headers."""
+    return Response(status_code=status.HTTP_200_OK)
+
+
 def _sse(event_type: str, payload: dict[str, Any]) -> str:
     body = json.dumps({"type": event_type, **payload})
     return f"data: {body}\n\n"
@@ -40,6 +46,17 @@ async def submit_query_stream(
     body: QueryRequest,
     company: AuthenticatedCompanyDep,
 ) -> StreamingResponse:
+    if not body.raw_query.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[
+                {
+                    "loc": ["body", "raw_query"],
+                    "msg": "raw_query must not be empty",
+                    "type": "value_error",
+                }
+            ],
+        )
     query_id = str(uuid4())
     api_key_hash = hash_api_key(body.querier_api_key)
     target = str(body.target_company_id) if body.target_company_id else None
